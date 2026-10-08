@@ -1,4 +1,4 @@
-/* Loads only the browser-safe Supabase settings from the root .env file. */
+/* Loads browser-safe Supabase settings from Vercel runtime config or local .env. */
 window.RM = window.RM || {};
 RM.SUPABASE_CONFIG = {
   url: '',
@@ -6,9 +6,25 @@ RM.SUPABASE_CONFIG = {
 };
 
 RM.loadSupabaseConfig = async function () {
-  const response = await fetch(new URL('.env', document.baseURI), { cache: 'no-store' });
+  let response;
+  try {
+    response = await fetch(new URL('/api/config', window.location.origin), { cache: 'no-store' });
+    if (response.ok) {
+      const config = await response.json();
+      if (config.url && config.anonKey) {
+        RM.SUPABASE_CONFIG = config;
+        return;
+      }
+    }
+  } catch { /* Helyi statikus szervernél nincs /api végpont, próbáljuk a .env fájlt. */ }
+
+  try {
+    response = await fetch(new URL('.env', document.baseURI), { cache: 'no-store' });
+  } catch {
+    throw new Error('Nem sikerült betölteni a Supabase-beállításokat. Vercelen állítsd be a projekt Environment Variables értékeit, helyben pedig indíts HTTP-szervert.');
+  }
   if (!response.ok) {
-    throw new Error(`A .env fájl nem olvasható (${response.status}). HTTP-szerverről nyisd meg az oldalt.`);
+    throw new Error(`A Supabase-beállítások nem tölthetők be (${response.status}). Vercelen ellenőrizd a NEXT_PUBLIC_SUPABASE_URL és NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY változókat, helyben pedig a .env fájlt.`);
   }
 
   const values = new Map();

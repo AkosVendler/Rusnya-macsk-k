@@ -1,0 +1,72 @@
+/* Rusnya Macskák – stíluslap */
+:root{--o:#ff5a1f;--k:#0a0b10;--g:#0fcb6b;--b:#2fb8ef;--p:#9560c4;--y:#ffb400;--bg:#fff;--fg:#0a0b10;--card:#ecebf0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15161c;--fg:#fff;--card:#2a2b33}
+}
+:root[data-theme="dark"]{--bg:#15161c;--fg:#fff;--card:#2a2b33}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);transition:background .2s;font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;text-transform:uppercase;font-weight:700;display:flex;justify-content:center}
+#app{width:100%;max-width:440px;min-height:100%;background:transparent;color:inherit;display:flex;flex-direction:column;padding:20px;gap:14px;overflow-y:auto}
+#app.full{justify-content:center;align-items:center;text-align:center}
+h1,h2{margin:0;font-weight:800;line-height:1}
+h1{font-size:34px}
+h2{font-size:26px}
+.logo{font-size:20px;line-height:.9;font-weight:800}
+.big{font-size:96px;font-weight:800;line-height:1}
+.btn{border:0;border-radius:10px;padding:14px;font:inherit;font-size:22px;background:var(--k);color:#fff;cursor:pointer;text-transform:uppercase;width:100%}
+.btn.o{background:var(--o)}
+.btn.w{background:#fff;color:var(--k)}
+.btn:disabled{opacity:.4}
+.card{background:var(--card);border-radius:12px;padding:12px}
+.q{background:var(--p);color:#fff;border-radius:14px;padding:26px 16px;font-size:30px;text-align:center;line-height:1.05}
+input{font:inherit;font-size:22px;text-transform:uppercase;padding:12px;border-radius:10px;border:2px solid var(--k);width:100%;background:#fff;color:var(--k)}
+.av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;flex:none;border:3px solid transparent}
+.av img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.grid .av{cursor:pointer;width:100%;height:auto;aspect-ratio:1;overflow:hidden}
+.sel{border-color:var(--o)!important}
+.row{display:flex;align-items:center;gap:10px}
+.pl{background:var(--k);color:#fff;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:12px;font-size:22px}
+.pl.out{opacity:.55;background:var(--o)}
+.pl .c{margin-left:auto;color:var(--b)}
+.ans{background:var(--k);color:#fff;border-radius:12px;padding:20px;font-size:26px;cursor:pointer;text-align:left;width:100%;border:0;font-family:inherit;text-transform:uppercase}
+.ans.x{background:var(--o);opacity:.6;cursor:default}
+small{font-size:15px;opacity:.7;font-weight:500}
+.sp{flex:1}
+
+/* Kiegészítő segédosztályok */
+.center-col{text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
+.role-text{font-size:20px;line-height:1.1;font-weight:500}
+.error{color:var(--o)}
+
+/* Listák (játékosok, kártyák, ranglista) */
+.list{display:flex;flex-direction:column;gap:14px}
+.btn:hover,.ans:hover:not(.x){filter:brightness(1.15)}
+.btn:focus-visible,.ans:focus-visible,input:focus-visible{outline:3px solid var(--b);outline-offset:2px}
+.grid .av:focus-visible{outline:3px solid var(--b);outline-offset:2px}
+
+/* ---------- Asztali nézet ---------- */
+@media (min-width:800px){
+  #app{max-width:820px;padding:48px 32px;gap:22px}
+  #app.full{max-width:none}
+  h1{font-size:56px}
+  h2{font-size:34px}
+  .logo{font-size:28px}
+  .big{font-size:180px}
+  .btn{font-size:26px;padding:18px;max-width:440px;align-self:center}
+  #app.full .btn{width:440px}
+  input{font-size:26px;padding:16px}
+  .q{font-size:46px;padding:44px 32px}
+  .code{font-size:96px}
+  .role-text{font-size:28px;max-width:640px}
+  small{font-size:18px}
+  .pl{font-size:26px;padding:14px 20px}
+  .grid{grid-template-columns:repeat(12,1fr);gap:10px}
+  .ans{font-size:30px;padding:28px}
+  .list.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .leaderboard{max-width:560px;width:100%;align-self:center}
+  .center-col{gap:20px}
+}
+@media (min-width:1200px){
+  #app{max-width:960px}
+}

@@ -61,9 +61,10 @@ RM.screens = (function () {
         <div class="profile-summary card"><div class="row">${avatar(p)}<div><span class="eyebrow">JÁTÉKOS</span><strong>${esc(displayName)}</strong></div><button class="profile-edit" id="profile-edit" aria-label="Profil beállítása">✎</button></div></div>
         <div class="can-balance"><span class="can-icon" aria-hidden="true">🥫</span><div><small>ÖSSZEGYŰJTÖTT KONZERV</small><strong id="home-cans">${Number(s.stats?.cans || 0)}</strong></div><span class="can-label">PONT</span></div>
         <button class="btn o" id="create">Új szoba létrehozása <span>→</span></button>
-        <div class="join-block"><h2>Van szobakódod?</h2>
-          <div class="row"><input id="code" maxlength="6" placeholder="6 jegyű kód" autocapitalize="characters">
+          <div class="join-block"><h2>Van szobakódod?</h2>
+            <div class="row"><input id="code" maxlength="6" placeholder="6 jegyű kód" autocapitalize="characters">
             <button class="btn" id="join" style="width:auto">Belépés</button></div>
+            <input id="room-password" type="password" maxlength="32" autocomplete="off" placeholder="Szobajelszó (ha privát)">
         </div>
         <div id="room-error" class="error"></div>
         <nav class="home-nav" aria-label="Főmenü">
@@ -75,7 +76,7 @@ RM.screens = (function () {
     </section>`);
 
     const open = mode => async () => {
-      try { await RM.online.openRoom(mode, $('code')?.value || ''); }
+      try { await RM.online.openRoom(mode, $('code')?.value || '', $('room-password')?.value || ''); }
       catch (error) { $('room-error').textContent = error.message || 'Nem sikerült csatlakozni.'; }
     };
     $('create').onclick = open('create');
@@ -176,17 +177,54 @@ RM.screens = (function () {
     set(`${header()}<h2>Szobalobby</h2>
       <small>A barátaid a saját eszközükön a kóddal csatlakozhatnak:</small>
       <div class="card code" style="text-align:center;letter-spacing:.14em">${esc(s.roomCode)}</div>
+      ${s.isPrivate ? '<div class="room-private-badge">🔒 Privát, jelszóval védett szoba</div>' : '<div class="room-private-badge">Nyilvános szoba</div>'}
       <button class="btn w" id="copy">Szobakód másolása</button>
       <h2>Játékosok (${P.length}/${RM.game.MAX_PLAYERS})</h2>
-      <div class="list cols">${P.map(p => `<div class="pl">${avatar(p)}${esc(p.name)}${p.user_id === s.hostId ? '<small> · gazda</small>' : ''}</div>`).join('')}</div>
-      ${s.isHost ? `<button class="btn o" id="st" ${canStart ? '' : 'disabled'}>Indítás</button>
+      <div class="list cols">${P.map(p => `<div class="pl">${avatar(p)}<span class="player-name">${esc(p.name)}${p.user_id === s.hostId ? '<small> · gazda</small>' : ''}</span>${s.isHost && p.user_id !== s.hostId ? `<button class="kick-player" data-user="${esc(p.user_id)}" aria-label="${esc(p.name)} kirúgása">Kirúg</button>` : ''}</div>`).join('')}</div>
+      ${s.isHost ? `<section class="room-settings card">
+          <h2>Szobabeállítások</h2>
+          <label><small>Körök száma</small><input id="room-rounds" type="number" min="1" max="20" step="1" value="${Number(s.maxRounds) || 3}"></label>
+          <label class="private-toggle"><input id="room-private" type="checkbox" ${s.isPrivate ? 'checked' : ''}><span>Privát szoba, jelszóval</span></label>
+          <label><small>Jelszó (4–32 karakter)</small><input id="room-password" type="password" maxlength="32" autocomplete="new-password" placeholder="${s.isPrivate ? 'Üresen hagyva a jelenlegi marad' : 'Adj meg egy jelszót'}"></label>
+          <small>A jelszó csak a szerveren, titkosítva tárolódik. A kirúgás jelenleg a lobbyban használható.</small>
+          <div id="lobby-error" class="error"></div>
+          <button class="btn w" id="save-room-settings">Beállítások mentése</button>
+        </section>
+        <button class="btn o" id="st" ${canStart ? '' : 'disabled'}>Indítás (${Number(s.maxRounds) || 3} kör)</button>
         <small>${P.length < RM.game.MIN_PLAYERS ? `Még legalább ${RM.game.MIN_PLAYERS - P.length} játékos kell.` : 'Te vagy a szoba gazdája.'}</small>` : '<p>Várakozás a szoba gazdájára…</p>'}
       <button class="btn" id="hm">${s.isHost ? 'Szoba bezárása' : 'Kilépés a szobából'}</button>`);
     $('copy').onclick = async () => {
       try { await navigator.clipboard.writeText(s.roomCode); $('copy').textContent = 'Kimásolva!'; }
       catch { $('copy').textContent = `Kód: ${s.roomCode}`; }
     };
-    if (s.isHost) $('st').onclick = () => RM.game.start();
+    if (s.isHost) {
+      $('st').onclick = () => RM.game.start();
+      $('room-private').onchange = event => { $('room-password').disabled = !event.target.checked; };
+      $('room-password').disabled = !s.isPrivate;
+      $('save-room-settings').onclick = async () => {
+        const rounds = Number($('room-rounds').value);
+        const isPrivate = $('room-private').checked;
+        const password = $('room-password').value;
+        if (!Number.isInteger(rounds) || rounds < 1 || rounds > 20) {
+          $('lobby-error').textContent = 'A körök száma 1 és 20 között lehet.';
+          return;
+        }
+        if (isPrivate && password && (password.length < 4 || password.length > 32)) {
+          $('lobby-error').textContent = 'A jelszó 4–32 karakter legyen.';
+          return;
+        }
+        try { await RM.online.updateRoomSettings(rounds, isPrivate, password); }
+        catch (error) { $('lobby-error').textContent = error.message || 'Nem sikerült menteni a beállításokat.'; }
+      };
+      document.querySelectorAll('.kick-player').forEach(button => {
+        button.onclick = async () => {
+          const player = P.find(item => item.user_id === button.dataset.user);
+          if (!player || !window.confirm(`Biztosan kirúgod ${player.name} játékost?`)) return;
+          try { await RM.online.kickPlayer(player.user_id); }
+          catch (error) { RM.screens.showMessage('Nem sikerült kirúgni a játékost', error.message || 'Ellenőrizd az internetkapcsolatot.'); }
+        };
+      });
+    }
     $('hm').onclick = async () => {
       if (!S().isHost) {
         RM.online.leaveRoom();

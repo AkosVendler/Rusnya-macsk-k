@@ -141,7 +141,7 @@ RM.game = {
     RM.screens.win(coins);
   },
 
-  isLastRound: () => RM.state.round >= RM.state.players.length - 1,
+  isLastRound: () => RM.state.round >= (Number(RM.state.maxRounds) || RM.state.players.length) - 1,
 
   async afterLeaderboard() {
     const s = RM.state;

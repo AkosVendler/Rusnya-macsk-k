@@ -5,6 +5,7 @@ RM.state = {
   profile: { name: '', avatar: 0 },   // a saját profilod (localStorage-ban él)
   players: [],                        // [{ name, avatar, score }]
   round: 0,                           // hányadik kör (0-tól)
+  maxRounds: 3,                       // a gazda által beállított körök száma
   usedQuestions: [],                  // már feltett kérdések indexei
   question: null,                     // [kérdés, helyes válasz]
   guesserIdx: 0,                      // fekete macska
@@ -16,6 +17,7 @@ RM.state = {
   lastResult: '',
   stage: 'auth',                      // közös online játékfázis
   roomCode: '',
+  isPrivate: false,
   roomId: '',
   hostId: '',
   userId: '',

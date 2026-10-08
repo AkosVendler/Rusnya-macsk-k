@@ -2,7 +2,7 @@
 window.RM = window.RM || {};
 
 RM.online = (() => {
-  const GAME_FIELDS = ['players', 'round', 'usedQuestions', 'question', 'guesserIdx', 'whiteIdx', 'fakes', 'cards', 'turn', 'stage', 'gameId', 'lastResult'];
+  const GAME_FIELDS = ['players', 'round', 'maxRounds', 'usedQuestions', 'question', 'guesserIdx', 'whiteIdx', 'fakes', 'cards', 'turn', 'stage', 'gameId', 'lastResult'];
   let client = null;
   let pollId = null;
   let lastFingerprint = '';
@@ -33,14 +33,18 @@ RM.online = (() => {
       avatar: Number(m.avatar) || 0,
       score: scores.get(m.user_id) || 0,
     }));
-    const fingerprint = JSON.stringify({ state: incoming, members });
+    const fingerprint = JSON.stringify({ state: incoming, members, is_private: payload.is_private });
     s.roomId = payload.id;
     s.roomCode = payload.code;
     s.hostId = payload.host_id;
     s.isHost = payload.host_id === s.userId;
+    s.isPrivate = Boolean(payload.is_private);
     for (const key of GAME_FIELDS) {
       if (key === 'players') s.players = players;
       else if (Object.prototype.hasOwnProperty.call(incoming, key)) s[key] = incoming[key];
+    }
+    if (!Number.isInteger(Number(incoming.maxRounds)) || Number(incoming.maxRounds) < 1) {
+      s.maxRounds = players.length || 3;
     }
     const changed = fingerprint !== lastFingerprint;
     lastFingerprint = fingerprint;
@@ -56,6 +60,8 @@ RM.online = (() => {
     try { localStorage.removeItem(ACTIVE_ROOM_KEY); } catch { /* a munkamenet ettől még lezárható */ }
     const s = RM.state;
     s.roomCode = '';
+    s.isPrivate = false;
+    s.maxRounds = 3;
     s.roomId = '';
     s.hostId = '';
     s.isHost = false;
@@ -135,6 +141,7 @@ RM.online = (() => {
         members: RM.state.players.map((p, seat) => ({
           user_id: p.user_id, name: p.name, avatar: p.avatar, seat,
         })),
+        is_private: RM.state.isPrivate,
       });
     } catch (error) {
       console.error('Játék mentése sikertelen:', error);
@@ -267,7 +274,7 @@ RM.online = (() => {
     if (homeCans) homeCans.textContent = String(s.stats.cans);
   }
 
-  async function openRoom(mode, code = '') {
+  async function openRoom(mode, code = '', password = '') {
     await saveProfile();
     const s = RM.state;
     const args = { p_name: s.profile.name, p_avatar: s.profile.avatar };
@@ -280,6 +287,7 @@ RM.online = (() => {
       result = await client.rpc('create_game_room', args);
     } else {
       args.p_code = code.trim().toUpperCase();
+      args.p_password = password;
       result = await client.rpc('join_game_room', args);
     }
     if (result.error) throw result.error;
@@ -306,6 +314,28 @@ RM.online = (() => {
     RM.screens.home();
   }
 
+  async function updateRoomSettings(rounds, isPrivate, password) {
+    const { data, error } = await client.rpc('update_game_room_settings', {
+      p_code: RM.state.roomCode,
+      p_rounds: Number(rounds),
+      p_is_private: Boolean(isPrivate),
+      p_password: password,
+    });
+    if (error) throw error;
+    lastFingerprint = '';
+    applyRoom(data, false);
+    RM.screens.lobby();
+  }
+
+  async function kickPlayer(userId) {
+    const { error } = await client.rpc('kick_game_room_member', {
+      p_code: RM.state.roomCode,
+      p_user_id: userId,
+    });
+    if (error) throw error;
+    await fetchRoom();
+  }
+
   function leaveRoom() {
     clearRoomState();
   }
@@ -321,6 +351,7 @@ RM.online = (() => {
 
   return {
     init, authenticate, openRoom, save, saveProfile, refreshStats, recordRoundStats, signOut, leaveRoom, closeRoom,
+    updateRoomSettings, kickPlayer,
     get configured() { return configured(); },
     get client() { return client; },
     refresh: fetchRoom,

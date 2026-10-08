@@ -12,17 +12,24 @@ RM.state = {
   fakes: {},                          // { játékosIndex: hamis válasz }
   cards: [],                          // válaszkártyák: { text, real, who, out }
   turn: 0,                            // melyik játékos jön a szerepkörök körében
+  gameId: '',
+  lastResult: '',
   stage: 'auth',                      // közös online játékfázis
   roomCode: '',
   roomId: '',
   hostId: '',
   userId: '',
   isHost: false,
+  stats: { roundsPlayed: 0, roundsWon: 0, lies: 0, detective: 0, cans: 0 },
 
   loadProfile() {
     try {
       const saved = JSON.parse(localStorage.getItem('rm_profile'));
-      if (saved) this.profile = saved;
+      if (saved) this.profile = {
+        ...this.profile,
+        ...saved,
+        avatar: Number.isInteger(saved.avatar) && RM.AVATARS[saved.avatar]?.image ? saved.avatar : 0,
+      };
     } catch (e) { /* nincs mentett profil */ }
   },
 

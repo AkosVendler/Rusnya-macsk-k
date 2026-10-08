@@ -13,6 +13,8 @@ RM.game = {
 
   start() {
     const s = RM.state;
+    s.gameId = crypto.randomUUID();
+    s.lastResult = '';
     s.players.forEach(p => (p.score = 0));
     s.round = 0;
     s.usedQuestions = [];
@@ -51,6 +53,7 @@ RM.game = {
     s.fakes = {};
     s.cards = [];
     s.turn = 0;
+    s.lastResult = '';
     s.stage = 'countdown';
     if (RM.online) RM.online.save();
     RM.screens.countdown(() => this.nextTurn());
@@ -118,6 +121,7 @@ RM.game = {
   guesserLoses() {
     const s = RM.state;
     s.stage = 'lose';
+    s.lastResult = 'lose';
     const exposed = new Set(s.cards.filter(c => c.out).map(c => c.who));
     const winners = [];
     s.players.forEach((p, i) => {
@@ -127,21 +131,31 @@ RM.game = {
     RM.screens.lose(winners);
   },
 
-  /** Minden hamisat kiszűrt → annyi érme, ahány hamis válasz volt. */
+  /** Minden hamisat kiszűrt → annyi konzervpontot kap, ahány hamis válasz volt. */
   guesserWins() {
     const s = RM.state, coins = Object.keys(s.fakes).length;
     s.players[s.guesserIdx].score += coins;
     s.stage = 'win';
+    s.lastResult = 'win';
     if (RM.online) RM.online.save();
     RM.screens.win(coins);
   },
 
   isLastRound: () => RM.state.round >= RM.state.players.length - 1,
 
-  afterLeaderboard() {
+  async afterLeaderboard() {
     const s = RM.state;
     if (!s.isHost) return;
-    if (this.isLastRound()) { s.players.forEach(p => (p.score = 0)); s.round = 0; }
+    if (RM.online) {
+      try { await RM.online.recordRoundStats(); }
+      catch (error) { console.warn('A körstatisztikát a szoba többi játékosa még szinkronizálhatja:', error); }
+    }
+    if (this.isLastRound()) {
+      s.players.forEach(p => (p.score = 0));
+      s.round = 0;
+      s.gameId = crypto.randomUUID();
+      s.usedQuestions = [];
+    }
     else s.round++;
     this.newRound();
   },

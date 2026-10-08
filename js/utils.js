@@ -37,10 +37,7 @@ RM.ui = {
 
   avatar(p, extraClass = '') {
     const item = RM.AVATARS[p.avatar] || RM.AVATARS[0];
-    const face = item.image
-      ? `<img src="${RM.util.esc(item.image)}" alt="" aria-hidden="true">`
-      : item.emoji;
-    return `<div class="av ${extraClass}" style="background:${item.color}">${face}</div>`;
+    return `<div class="av ${extraClass}" style="background:${item.color}"><img src="${RM.util.esc(item.image)}" alt="" aria-hidden="true"></div>`;
   },
 
   /** Rövidítés: elem lekérése a legutóbb kirajzolt képernyőn. */

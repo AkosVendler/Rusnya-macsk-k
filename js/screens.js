@@ -8,6 +8,8 @@ RM.screens = (function () {
   const { esc } = RM.util;
   const { set, header, avatar, $ } = RM.ui;
   const S = () => RM.state;
+  try { document.documentElement.dataset.theme = localStorage.getItem('rm_theme') || 'light'; }
+  catch { document.documentElement.dataset.theme = 'light'; }
 
   /** Szerepek megjelenése: [név, háttér, szöveg, leírás] */
   const ROLES = {
@@ -24,7 +26,7 @@ RM.screens = (function () {
   /* ---------- Fiók, profil és online szobalobby ---------- */
 
   function auth(message = '') {
-    set(`${header()}<h1>Szia, macska!</h1>
+    set(`${header()}<section class="auth-panel"><h1>Szia, macska!</h1>
       <p>Minden játékos a saját fiókjával lép be a saját telefonján vagy számítógépén.</p>
       ${message ? `<div class="error">${esc(message)}</div>` : ''}
       <label><small>Felhasználónév</small><input id="username" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="pl. cirmi_12"></label>
@@ -32,7 +34,7 @@ RM.screens = (function () {
       <div id="auth-error" class="error"></div>
       <button class="btn o" id="login">Belépés</button>
       <button class="btn" id="signup">Fiók létrehozása</button>
-      <small>Felhasználónév: 3–20 karakter, angol betű, szám, pont, kötőjel vagy aláhúzás. E-mail-címet nem kérünk és nem küldünk levelet. Ehhez a Supabase-ben ki kell kapcsolni az Email / Confirm email beállítást. Elfelejtett jelszóhoz jelenleg nincs visszaállítás.</small>`);
+      <small>Felhasználónév: 3–20 karakter, angol betű, szám, pont, kötőjel vagy aláhúzás. E-mail-címet nem kérünk és nem küldünk levelet. Ehhez a Supabase-ben ki kell kapcsolni az Email / Confirm email beállítást. Elfelejtett jelszóhoz jelenleg nincs visszaállítás.</small></section>`);
     const run = mode => async () => {
       const username = $('username').value.trim(), password = $('password').value;
       try {
@@ -46,44 +48,126 @@ RM.screens = (function () {
 
   function home() {
     const s = S(), p = s.profile;
-    set(`${header()}<h1>Szia, macska!</h1>
-      <div class="card" style="background:var(--o);color:#fff"><div class="row">
-        ${avatar(p)}
-        <div style="flex:1"><small>Becenév</small>
-          <input id="nm" maxlength="12" value="${esc(p.name)}" placeholder="Írd be a neved"></div>
-      </div></div>
-      <h2>Profilkép</h2>
-      <div class="grid">${RM.AVATARS.map((a, i) =>
-        `<div class="av ${i === p.avatar ? 'sel' : ''}" data-i="${i}" role="button" tabindex="0" aria-label="Profilkép ${i + 1}" title="Profilkép ${i + 1}" style="background:${a.color}">${a.image ? `<img src="${esc(a.image)}" alt="">` : a.emoji}</div>`).join('')}</div>
-      <button class="btn o" id="create">Új szoba létrehozása</button>
-      <h2>Csatlakozás</h2>
-      <div class="row"><input id="code" maxlength="6" placeholder="6 jegyű szobakód" autocapitalize="characters">
-        <button class="btn" id="join" style="width:auto;padding:12px 18px">Belépés</button></div>
-      <div id="room-error" class="error"></div>
-      <button class="btn" id="logout">Kilépés a fiókból</button>
-      <small>${RM.game.MIN_PLAYERS}–${RM.game.MAX_PLAYERS} játékos · ${RM.QUESTIONS.length} kérdés.</small>`);
+    const displayName = p.name.trim() || 'Játékos';
+    set(`${header()}<section class="home-layout">
+      <div class="home-hero panel">
+        <span class="eyebrow">A cicák partijátéka · ${RM.game.MIN_PLAYERS}–${RM.game.MAX_PLAYERS} játékos</span>
+        <h1>Szia, ${esc(displayName)}!</h1>
+        <p>Blöffölj, szúrj ki a többiekkel, és találd meg az egyetlen igaz választ!</p>
+        <img class="hero-art" src="assets/create lobby.jpg" alt="Négy macska együtt játszik a telefonján">
+        <div class="hero-sticker">KÉSZEN<br>ÁLLSZ? <span>🐾</span></div>
+      </div>
+      <div class="home-controls panel">
+        <div class="profile-summary card"><div class="row">${avatar(p)}<div><span class="eyebrow">JÁTÉKOS</span><strong>${esc(displayName)}</strong></div><button class="profile-edit" id="profile-edit" aria-label="Profil beállítása">✎</button></div></div>
+        <div class="can-balance"><span class="can-icon" aria-hidden="true">🥫</span><div><small>ÖSSZEGYŰJTÖTT KONZERV</small><strong id="home-cans">${Number(s.stats?.cans || 0)}</strong></div><span class="can-label">PONT</span></div>
+        <button class="btn o" id="create">Új szoba létrehozása <span>→</span></button>
+        <div class="join-block"><h2>Van szobakódod?</h2>
+          <div class="row"><input id="code" maxlength="6" placeholder="6 jegyű kód" autocapitalize="characters">
+            <button class="btn" id="join" style="width:auto">Belépés</button></div>
+        </div>
+        <div id="room-error" class="error"></div>
+        <nav class="home-nav" aria-label="Főmenü">
+          <button class="nav-tile" id="settings"><span class="nav-icon">⚙</span><span>Beállítások</span><b>→</b></button>
+          <button class="nav-tile store-tile" id="store"><span class="nav-icon">✦</span><span><small>KÉSZÜL</small>Bolt</span><b>→</b></button>
+        </nav>
+        <small>${RM.QUESTIONS.length} kérdés vár rátok</small>
+      </div>
+    </section>`);
 
-    document.querySelectorAll('.grid .av').forEach(el => el.onclick = () => {
-      p.name = $('nm').value;
-      p.avatar = +el.dataset.i;
-      home();
-    });
-    document.querySelectorAll('.grid .av').forEach(el => el.onkeydown = event => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        el.click();
-      }
-    });
     const open = mode => async () => {
-      p.name = $('nm').value.trim() || 'Játékos';
       try { await RM.online.openRoom(mode, $('code')?.value || ''); }
       catch (error) { $('room-error').textContent = error.message || 'Nem sikerült csatlakozni.'; }
     };
     $('create').onclick = open('create');
     $('join').onclick = open('join');
-    $('logout').onclick = async () => {
-      try { await RM.online.signOut(); } catch (error) { $('room-error').textContent = error.message; }
+    $('profile-edit').onclick = settings;
+    $('settings').onclick = settings;
+    $('store').onclick = store;
+  }
+
+  function settings() {
+    const s = S(), p = s.profile;
+    let theme = 'light';
+    try { theme = localStorage.getItem('rm_theme') || 'light'; } catch { /* alapértelmezett téma */ }
+    document.documentElement.dataset.theme = theme;
+    set(`${header()}<section class="settings-layout">
+      <div class="settings-title"><span class="eyebrow">SAJÁT FIÓK</span><h1>Beállítások</h1><p>Állítsd be a játékosprofilodat és a megjelenést.</p></div>
+      <div class="panel settings-panel">
+        <div class="settings-section">
+          <span class="eyebrow">JÁTÉKOS PROFIL</span>
+          <label><small>Becenév</small><input id="setting-name" maxlength="12" value="${esc(p.name)}" placeholder="Írd be a neved"></label>
+          <div class="settings-avatar-heading"><h2>Profilkép</h2><small>Csak macskaképek választhatók</small></div>
+          <div class="grid settings-avatars">${RM.AVATARS.map((item, i) =>
+            `<div class="av ${i === p.avatar ? 'sel' : ''}" data-i="${i}" role="button" tabindex="0" aria-label="Macskakép ${i + 1}" style="background:${item.color}"><img src="${esc(item.image)}" alt=""></div>`).join('')}</div>
+        </div>
+        <div class="settings-section stats-section">
+          <h2>Statisztikák</h2>
+          <div class="stats-grid">
+            <article class="stat-card stat-wins"><strong id="stat-wins">${Number(s.stats?.roundsWon || 0)}</strong><span>Nyert körök</span></article>
+            <article class="stat-card stat-lies"><strong id="stat-lies">${Number(s.stats?.lies || 0)}</strong><span>Hazugságok</span></article>
+            <article class="stat-card stat-detective"><strong id="stat-detective">${Number(s.stats?.detective || 0)}</strong><span>Detektív</span></article>
+          </div>
+          <small class="stats-caption">Hazugságok: beadott hamis válaszok · Detektív: találgató körök</small>
+          <div class="stats-cans"><span aria-hidden="true">🥫</span><span>Összegyűjtött konzervpont</span><strong id="stat-cans">${Number(s.stats?.cans || 0)}</strong></div>
+        </div>
+        <div class="settings-section appearance-row">
+          <div><span class="eyebrow">MEGJELENÉS</span><h2>Téma</h2><small>Válassz világos vagy sötét felületet.</small></div>
+          <button class="theme-toggle" id="theme-toggle" aria-pressed="${theme === 'dark'}">${theme === 'dark' ? '☾ Sötét' : '☀ Világos'}</button>
+        </div>
+        <div id="settings-error" class="error"></div>
+        <div class="settings-actions"><button class="btn o" id="save-settings">Mentés</button><button class="btn w" id="logout">Kilépés a fiókból</button></div>
+      </div>
+      <button class="text-btn back-home" id="back-home">← Vissza a főmenübe</button>
+    </section>`);
+    document.querySelectorAll('.settings-avatars .av').forEach(el => {
+      el.onclick = () => { p.avatar = Number(el.dataset.i); settings(); };
+      el.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); el.click(); }
+      };
+    });
+    $('theme-toggle').onclick = () => {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('rm_theme', theme); } catch { /* téma csak az aktuális lapon */ }
+      document.documentElement.dataset.theme = theme;
+      settings();
     };
+    $('save-settings').onclick = async () => {
+      p.name = $('setting-name').value.trim() || 'Játékos';
+      try { await RM.online.saveProfile(); home(); }
+      catch (error) { $('settings-error').textContent = error.message || 'Nem sikerült menteni a profilt.'; }
+    };
+    $('logout').onclick = async () => {
+      try { await RM.online.signOut(); } catch (error) { $('settings-error').textContent = error.message; }
+    };
+    $('back-home').onclick = home;
+    RM.online.refreshStats().then(stats => {
+      if (!stats) return;
+      const counters = { 'stat-wins': stats.roundsWon, 'stat-lies': stats.lies, 'stat-detective': stats.detective, 'stat-cans': stats.cans };
+      for (const [id, value] of Object.entries(counters)) {
+        const counter = $(id);
+        if (counter) counter.textContent = String(value);
+      }
+    }).catch(error => console.warn('A statisztikákat nem sikerült betölteni:', error));
+  }
+
+  function store() {
+    set(`${header()}<section class="store-layout">
+      <div class="store-hero panel">
+        <span class="eyebrow">HAMAROSAN ÉRKEZIK</span>
+        <div class="store-symbol" aria-hidden="true">✦</div>
+        <h1>A macskabolt</h1>
+        <p>Új kinézetek, cicás extrák és meglepetések készülnek. Most még csak a játék és a jó blöff számít!</p>
+        <div class="coming-soon">BOLT <span>HAMAROSAN</span></div>
+      </div>
+      <div class="store-preview panel">
+        <span class="eyebrow">TERVEZETT KÍNÁLAT</span>
+        <article class="store-item"><span class="item-art avatar-art"><img src="assets/cats-04.webp" alt=""></span><div><h2>Új macskaportrék</h2><small>További képek a profilodhoz</small></div><b>HAMAROSAN</b></article>
+        <article class="store-item"><span class="item-art theme-art">✦</span><div><h2>Játékterem-témák</h2><small>Szabd személyre a játékot</small></div><b>HAMAROSAN</b></article>
+        <div class="store-note"><strong>🐾 Játékérmék</strong><small>Az érmék jelenleg csak a meccsek pontszámát jelzik. Vásárlás még nincs.</small></div>
+        <button class="btn o" id="store-home">Vissza a főmenübe</button>
+      </div>
+    </section>`);
+    $('store-home').onclick = home;
   }
 
   function lobby() {
@@ -235,7 +319,7 @@ RM.screens = (function () {
     set(`${header()}<div class="big" style="font-size:72px">OOPS...</div>
       <h2>Ez volt a helyes válasz</h2>${answerCard()}
       <p style="font-size:20px">${esc(s.players[s.guesserIdx].name)} kiesett.<br>
-        +1 érme: ${winners.length ? winners.map(esc).join(', ') : 'senki'}</p>
+        🥫 +1 konzerv: ${winners.length ? winners.map(esc).join(', ') : 'senki'}</p>
       <button class="btn" id="ok">Eredménytábla</button>`, { full: true, bg: '#ff5a1f', fg: '#fff' });
     $('ok').onclick = () => {
       S().stage = 'leaderboard';
@@ -248,7 +332,7 @@ RM.screens = (function () {
     const s = S();
     set(`${header()}<div class="big" style="font-size:64px">NYERTÉL!</div>
       <h2>${esc(s.players[s.guesserIdx].name)} lebuktatta mindenkit</h2>${answerCard()}
-      <p style="font-size:22px">+${coins} érme</p>
+      <p style="font-size:22px">🥫 +${coins} konzervpont</p>
       <button class="btn" id="ok">Eredménytábla</button>`, { full: true, bg: '#0fcb6b', fg: '#fff' });
     $('ok').onclick = () => {
       S().stage = 'leaderboard';
@@ -262,7 +346,7 @@ RM.screens = (function () {
     const ranked = [...S().players].sort((a, b) => b.score - a.score);
     set(`${header()}<h1>${last ? 'Végeredmény' : 'Eredménytábla'}</h1>
       <div class="list leaderboard">${ranked.map((p, i) => `<div class="pl">${avatar(p)}
-        <span>${i === 0 && last ? '🏆 ' : ''}${esc(p.name)}</span><span class="c">${p.score} érme</span></div>`).join('')}</div>
+        <span>${i === 0 && last ? '🏆 ' : ''}${esc(p.name)}</span><span class="c score-cans">🥫 ${p.score}</span></div>`).join('')}</div>
       <div class="sp"></div>
       <button class="btn o" id="ok" ${S().isHost ? '' : 'disabled'}>${S().isHost ? (last ? 'Új játék' : 'Következő kör') : 'Várakozás a gazdára'}</button>
       ${last ? `<button class="btn" id="hm">${S().isHost ? 'Szoba bezárása' : 'Kilépés a szobából'}</button>` : ''}`);
@@ -279,5 +363,5 @@ RM.screens = (function () {
     };
   }
 
-  return { auth, home, lobby, countdown, handoff, roleScreen, questionPage, guessIntro, guess, lose, win, leaderboard, renderOnline, showMessage };
+  return { auth, home, settings, store, lobby, countdown, handoff, roleScreen, questionPage, guessIntro, guess, lose, win, leaderboard, renderOnline, showMessage };
 })();

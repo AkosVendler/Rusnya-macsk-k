@@ -2,11 +2,12 @@
 window.RM = window.RM || {};
 
 RM.online = (() => {
-  const GAME_FIELDS = ['players', 'round', 'usedQuestions', 'question', 'guesserIdx', 'whiteIdx', 'fakes', 'cards', 'turn', 'stage'];
+  const GAME_FIELDS = ['players', 'round', 'usedQuestions', 'question', 'guesserIdx', 'whiteIdx', 'fakes', 'cards', 'turn', 'stage', 'gameId', 'lastResult'];
   let client = null;
   let pollId = null;
   let lastFingerprint = '';
   let busy = false;
+  const recordedRounds = new Set();
   const ACTIVE_ROOM_KEY = 'rm_active_room';
   const USERNAME_EMAIL_DOMAIN = 'accounts.rusnyamacskak.invalid';
 
@@ -44,6 +45,9 @@ RM.online = (() => {
     const changed = fingerprint !== lastFingerprint;
     lastFingerprint = fingerprint;
     if (redraw && changed && RM.screens) RM.screens.renderOnline();
+    if (s.gameId && (s.stage === 'win' || s.stage === 'lose' || (s.stage === 'leaderboard' && s.lastResult))) {
+      recordRoundStats().catch(error => console.warn('A körstatisztika mentése sikertelen:', error));
+    }
   }
 
   function clearRoomState() {
@@ -146,10 +150,10 @@ RM.online = (() => {
     if (!user) return;
     const metadata = user.user_metadata || {};
     if (metadata.display_name) s.profile.name = metadata.display_name;
-    if (Number.isInteger(metadata.avatar)) s.profile.avatar = metadata.avatar;
+    if (Number.isInteger(metadata.avatar) && RM.AVATARS[metadata.avatar]?.image) s.profile.avatar = metadata.avatar;
     s.loadProfile();
     if (metadata.display_name) s.profile.name = metadata.display_name;
-    if (Number.isInteger(metadata.avatar)) s.profile.avatar = metadata.avatar;
+    if (Number.isInteger(metadata.avatar) && RM.AVATARS[metadata.avatar]?.image) s.profile.avatar = metadata.avatar;
   }
 
   async function init() {
@@ -167,6 +171,7 @@ RM.online = (() => {
     const { data: { session } } = await client.auth.getSession();
     if (session?.user) {
       setUser(session.user);
+      await refreshStats().catch(error => console.warn('A statisztikákat nem sikerült betölteni:', error));
       if (!await restoreActiveRoom()) RM.screens.home();
     } else {
       RM.screens.auth();
@@ -177,7 +182,9 @@ RM.online = (() => {
         RM.screens.auth();
       } else if (event === 'SIGNED_IN' && sessionNow?.user) {
         setUser(sessionNow.user);
-        restoreActiveRoom().then(restored => { if (!restored) RM.screens.home(); });
+        refreshStats()
+          .catch(error => console.warn('A statisztikákat nem sikerült betölteni:', error))
+          .finally(() => restoreActiveRoom().then(restored => { if (!restored) RM.screens.home(); }));
       }
     });
   }
@@ -204,6 +211,7 @@ RM.online = (() => {
     if (mode === 'signup' && !result.data.session) {
       return 'A Supabase nem adott bejelentkezett munkamenetet. Kapcsold ki az Authentication → Providers → Email → Confirm email beállítást, hogy ne próbáljon megerősítő e-mailt küldeni, majd próbáld újra.';
     }
+    await refreshStats();
     if (!await restoreActiveRoom()) RM.screens.home();
     return '';
   }
@@ -217,6 +225,46 @@ RM.online = (() => {
     });
     if (error) throw error;
     if (data.user) setUser(data.user);
+  }
+
+  async function refreshStats() {
+    if (!client || !RM.state.userId) return RM.state.stats;
+    const { data, error } = await client.rpc('get_my_game_stats');
+    if (error) throw error;
+    RM.state.stats = {
+      roundsPlayed: Number(data.rounds_played) || 0,
+      roundsWon: Number(data.rounds_won) || 0,
+      lies: Number(data.lies_submitted) || 0,
+      detective: Number(data.detective_rounds) || 0,
+      cans: Number(data.cans_earned) || 0,
+    };
+    return RM.state.stats;
+  }
+
+  async function recordRoundStats() {
+    const s = RM.state;
+    if (!client || !s.roomCode || !s.gameId || !(s.stage === 'win' || s.stage === 'lose' || (s.stage === 'leaderboard' && s.lastResult))) return;
+    const key = `${s.gameId}:${s.round}`;
+    if (recordedRounds.has(key)) return;
+    recordedRounds.add(key);
+    const { data, error } = await client.rpc('record_game_round', {
+      p_room_code: s.roomCode,
+      p_game_id: s.gameId,
+      p_round: s.round,
+    });
+    if (error) {
+      recordedRounds.delete(key);
+      throw error;
+    }
+    s.stats = {
+      roundsPlayed: Number(data.rounds_played) || 0,
+      roundsWon: Number(data.rounds_won) || 0,
+      lies: Number(data.lies_submitted) || 0,
+      detective: Number(data.detective_rounds) || 0,
+      cans: Number(data.cans_earned) || 0,
+    };
+    const homeCans = document.getElementById('home-cans');
+    if (homeCans) homeCans.textContent = String(s.stats.cans);
   }
 
   async function openRoom(mode, code = '') {
@@ -272,7 +320,7 @@ RM.online = (() => {
   });
 
   return {
-    init, authenticate, openRoom, save, saveProfile, signOut, leaveRoom, closeRoom,
+    init, authenticate, openRoom, save, saveProfile, refreshStats, recordRoundStats, signOut, leaveRoom, closeRoom,
     get configured() { return configured(); },
     get client() { return client; },
     refresh: fetchRoom,
